@@ -1,73 +1,47 @@
 import { Elysia, t } from "elysia";
 import { html } from "@elysiajs/html";
 import * as elements from "typed-html";
+import WeightTracker from "./components/WeightTracker";
 import { db } from "./db";
-import { Todo, todos } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { Weight, weights } from "./db/schema";
+import { between } from "drizzle-orm";
 
 const app = new Elysia()
   .use(html())
-  .get("/", ({ html }) =>
-    html(
+  .get("/", async ({ html }) => {
+    const thisMonthStartTimestamp = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1
+    ).getTime();
+    const thisMonthEndTimestamp = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth() + 1,
+      1
+    ).getTime();
+    const numberOfDaysInMonth = (thisMonthEndTimestamp - thisMonthStartTimestamp) / (1000 * 60 * 60 * 24);
+    const weightEntries = await db.select().from(weights).where(between(weights.timestamp, thisMonthStartTimestamp, thisMonthEndTimestamp)).all();
+    const weightList = [...weightEntries.map((entry) => entry.weight)];
+    const labels = [...weightEntries.map((entry) => entry.timestamp)];
+    // get number of days for this month, then divide current entries from this month
+    const percentage = Math.floor((weightList.length / numberOfDaysInMonth) * 100);
+    return html(
       <BaseHtml>
         <body
           class="flex w-full h-screen justify-center items-center"
-          hx-get="/todos"
-          hx-swap="innerHTML"
-          hx-trigger="load"
-        />
+        >
+          <WeightTracker streakPercentage={percentage} weights={weightList} labels={labels} />
+        </body>
       </BaseHtml>
     )
-  )
-  .get("/todos", async () => {
-    const data = await db.select().from(todos).all();
-    return <TodoList todos={data} />;
   })
-  .post(
-    "/todos/toggle/:id",
-    async ({ params }) => {
-      const oldTodo = await db
-        .select()
-        .from(todos)
-        .where(eq(todos.id, params.id))
-        .get();
-      const newTodo = await db
-        .update(todos)
-        .set({ completed: !oldTodo.completed })
-        .where(eq(todos.id, params.id))
-        .returning()
-        .get();
-      return <TodoItem {...newTodo} />;
-    },
-    {
-      params: t.Object({
-        id: t.Numeric(),
-      }),
-    }
-  )
-  .delete(
-    "/todos/:id",
-    async ({ params }) => {
-      await db.delete(todos).where(eq(todos.id, params.id)).run();
-    },
-    {
-      params: t.Object({
-        id: t.Numeric(),
-      }),
-    }
-  )
-  .post(
-    "/todos",
-    async ({ body }) => {
-      const newTodo = await db.insert(todos).values(body).returning().get();
-      return <TodoItem {...newTodo} />;
-    },
-    {
-      body: t.Object({
-        content: t.String({ minLength: 1 }),
-      }),
-    }
-  )
+  .post("/weight", async ({ body }) => {
+    // parse int body.weight
+    const weight = parseInt(body.weight) || 0;
+    const timestamp = new Date().getTime();
+    await db.insert(weights).values({ weight, timestamp }).run()
+    return "ok"
+  })
   .get("/styles.css", () => Bun.file("./tailwind-gen/styles.css"))
   .listen(3000);
 
