@@ -2,14 +2,16 @@ import { Elysia, t } from "elysia";
 import { html } from "@elysiajs/html";
 import * as elements from "typed-html";
 import WeightTracker from "./components/WeightTracker";
-import WeightList from "./components/WeightList";
+import Settings from "./components/WeightList";
 import { db } from "./db";
-import { Weight, weights } from "./db/schema";
+import { Weight, weights, authKeys } from "./db/schema";
 import { between, eq } from "drizzle-orm";
+import { cookie } from '@elysiajs/cookie';
 
 const app = new Elysia()
   .use(html())
-  .get("/", async ({ html }) => {
+  .use(cookie())
+  .get("/", async ({ html, cookie: { token } }) => {
     const { weightList, labels, percentage } = await fetchWeights();
     return html(
       <BaseHtml>
@@ -21,17 +23,21 @@ const app = new Elysia()
       </BaseHtml>
     )
   })
-  .post("/weight", async ({ body }) => {
+  .post("/weight", async ({ body, cookie: { token } }) => {
     // parse int body.weight
+    const isTokenValid = await db.select().from(authKeys).where(eq(authKeys.key, token)).all()
+    if (isTokenValid.length === 0) {
+      return "invalid token"
+    }
     const weight = parseInt(body.weight) || 0;
     const timestamp = new Date().getTime();
     await db.insert(weights).values({ weight, timestamp }).run()
     return "ok"
   })
-  .post("/settings/open", async () => {
+  .post("/settings/open", async ({ cookie: { token } }) => {
     const allWeights = await db.select().from(weights).all()
     return (
-      <WeightList weightList={allWeights} />
+      <Settings weightList={allWeights} token={token} />
     )
   })
   .post("settings/close", async () => {
@@ -40,24 +46,30 @@ const app = new Elysia()
   })
   .post("/delete/confirm/:id", ({ params: { id } }) => {
     return (
-      <span class="flex flex-col">
+      <span class="flex flex-col" id="deleteOptions">
         <span class="text-sm">Are you sure?</span>
         <div>
-          <span class="text-red-400" hx-post={`/delete/${id}`} hx-target="#weightTracker">YES</span>
-          <span class="text-green-400" hx-get={`/delete/close/${id}`}>Cancel</span>
+          <a class="text-red-400" href={`/delete/${id}`}>YES</a>
+          <span class="text-green-400" hx-post={`/delete/close/${id}`} hx-target="#deleteOptions" hx-swap="outerHTML">Cancel</span>
         </div>
       </span>
     )
   })
   .post("/delete/close/:id", ({ params: { id } }) => {
     return (
-      <span hx-post={`/delete/confirm/${id}`}>Delete</span>
+      <span hx-post={`/delete/confirm/${id}`} hx-swap="outerHTML">Delete</span>
     )
   })
-  .post("delete/:id", async ({ params: { id: toDeleteId } }) => {
-    await db.delete(weights).where(eq(weights.id, parseInt(toDeleteId))).run()
-    const { weightList, labels, percentage } = await fetchWeights();
-    return <WeightTracker streakPercentage={percentage} weights={weightList} labels={labels} />
+  .get("delete/:id", async ({ cookie: { token }, params: { id: toDeleteId }, set }) => {
+    const isTokenValid = await db.select().from(authKeys).where(eq(authKeys.key, token)).all()
+    if (isTokenValid.length > 0) {
+      await db.delete(weights).where(eq(weights.id, parseInt(toDeleteId))).run()
+    }
+    set.redirect = "/"
+  })
+  .post("/token/set", async ({ body: { token }, setCookie, set }) => {
+    setCookie("token", token)
+    set.redirect = "/"
   })
   .get("/styles.css", () => Bun.file("./tailwind-gen/styles.css"))
   .listen(3000);

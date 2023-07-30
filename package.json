@@ -22,6 +22,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@elysiajs/cookie": "^0.5.2",
     "@elysiajs/html": "^0.5.2",
     "@libsql/client": "^0.3.0",
     "drizzle-orm": "^0.27.2",
