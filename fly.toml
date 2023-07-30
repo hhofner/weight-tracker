@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for bethtest on 2023-07-16T04:53:13-05:00
+# fly.toml app configuration file generated for weight-tracker on 2023-07-30T17:37:07+09:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = "the-beth-stack"
-primary_region = "ord"
+app = "weight-tracker"
+primary_region = "nrt"
 
 [http_service]
   internal_port = 3000
