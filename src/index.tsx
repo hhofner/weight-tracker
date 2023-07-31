@@ -16,7 +16,7 @@ const app = new Elysia()
     return html(
       <BaseHtml>
         <body
-          class="flex w-full h-screen justify-center items-center"
+          class="flex w-full h-screen justify-center items-center max-w-screen-sm mx-auto"
         >
           <WeightTracker streakPercentage={percentage} weights={weightList} labels={labels} />
         </body>

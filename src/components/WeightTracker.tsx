@@ -26,7 +26,7 @@ export default function WeightTracker({ streakPercentage = 0, weights, labels }:
         <div class="flex flex-col items-center">
           <div class="radial-progress bg-accent text-primary-content border-4 border-accent" style={`--value:${streakPercentage};`}>{streakPercentage}%</div>Streak This Month</div>
       </div>
-      <form class="flex gap-2" hx-post="/weight">
+      <form class="flex gap-2 justify-center" hx-post="/weight">
         <input type="text" name="weight" placeholder="Weight in KG" class="input input-bordered w-full max-w-xs" />
         <button class="btn" type="submit">Input</button>
       </form>
