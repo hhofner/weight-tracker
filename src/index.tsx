@@ -29,7 +29,7 @@ const app = new Elysia()
     if (isTokenValid.length === 0) {
       return "invalid token"
     }
-    const weight = parseInt(body.weight) || 0;
+    const weight = parseFloat(body.weight) || 0;
     const timestamp = new Date().getTime();
     await db.insert(weights).values({ weight, timestamp }).run()
     return "ok"
